@@ -6,3 +6,5 @@ on:
 jobs:
   noop:
     runs-on: ubuntu-latest
+    steps:    
+    - run: echo "Workflow on default branch is a stub. Run from a feature branch to do real work."
