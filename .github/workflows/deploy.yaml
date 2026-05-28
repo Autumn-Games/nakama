@@ -2,7 +2,7 @@ name: Build and push to ECR
 
 on:
   push:
-    branches: [ dev, qa, test ]
+    branches: [ dev ] # single branch for development
 
 permissions:
   id-token: write # required for OIDC
@@ -52,7 +52,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build and push to ECR
+      - name: Build and push Nakama runtime
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -64,15 +64,23 @@ jobs:
             commit=${{ steps.version.outputs.commit }}
             version=${{ steps.version.outputs.version }}
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/skgm.${{ github.ref_name }}-leaderboard-api:latest
-            ${{ steps.login-ecr.outputs.registry }}/skgm.${{ github.ref_name }}-leaderboard-api:${{ steps.version.outputs.version }}
+            ${{ steps.login-ecr.outputs.registry }}/skgm.nakama:latest
+            ${{ steps.login-ecr.outputs.registry }}/skgm.nakama:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Force ECS service redeployment
-        run: |
-          aws ecs update-service \
-            --cluster ${{ vars.cluster }} \
-            --service leaderboard-api-${{ github.ref_name }}-service \
-            --force-new-deployment \
-            --region ${{ vars.AWS_REGION }}
+      - name: Build and push Nakama plugin builder image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./build/pluginbuilder/Dockerfile
+          push: true
+          provenance: false
+          sbom: false
+          build-args: |
+            version=${{ steps.version.outputs.version }}
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/skgm.nakama-plugin-builder:latest
+            ${{ steps.login-ecr.outputs.registry }}/skgm.nakama-plugin-builder:${{ steps.version.outputs.version }}
+          cache-from: type=gha,scope=pluginbuilder
+          cache-to: type=gha,mode=max,scope=pluginbuilder
